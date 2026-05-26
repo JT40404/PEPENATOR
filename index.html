@@ -76,7 +76,7 @@
     let mouse = { x: 450, y: 300 };
     let mouseDown = false;
     let lastShot = 0;
-    const FIRE_RATE = 140; // milliseconds (lower = faster)
+    const FIRE_RATE = 140;
     let bossSpawned = false;
 
     const memeTypes = [
@@ -108,7 +108,7 @@
         size: 26,
         speed: 1.7 + Math.random() * 0.7,
         type: type,
-        health: 3,
+        health: 2,        // ← Now easier to kill
         isBoss: false
       });
     }
@@ -140,7 +140,6 @@
       });
     }
 
-    // Mouse hold for rapid fire
     canvas.addEventListener('mousedown', (e) => {
       if (e.button === 0) mouseDown = true;
     });
