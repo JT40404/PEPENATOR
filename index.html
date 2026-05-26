@@ -127,46 +127,32 @@
       };
     }
 
-    // Slower + 2 Octaves Lower (~84 BPM)
-    function startHardcoreMusic() {
+    // Simple repetitive deep bass pattern: D1 D1 D1 D1 D1 D1 D2 D2 D1 D1 D1
+    function startMusic() {
       if (musicInterval) clearInterval(musicInterval);
       
-      // Deep bass (2 octaves down)
-      const bassNotes = [65.41, 82.41, 98.0, 65.41]; 
-      const leadNotes = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63];
-      
-      let bassIndex = 0;
-      let leadIndex = 0;
+      const pattern = [65.41, 65.41, 65.41, 65.41, 65.41, 65.41, 82.41, 82.41, 65.41, 65.41, 65.41];
+      let index = 0;
 
       musicInterval = setInterval(() => {
         if (gameOver) return;
 
-        // Heavy Deep Bass
+        const freq = pattern[index % pattern.length];
+        
         const bass = audioCtx.createOscillator();
-        bass.type = 'triangle';
-        bass.frequency.value = bassNotes[bassIndex % bassNotes.length];
-        const bassGain = audioCtx.createGain();
-        bassGain.gain.value = 0.22;
-        bass.connect(bassGain).connect(audioCtx.destination);
+        bass.type = 'triangle';           // Deep and warm
+        bass.frequency.value = freq;
+        
+        const gain = audioCtx.createGain();
+        gain.gain.value = 0.28;
+        
+        bass.connect(gain).connect(audioCtx.destination);
         bass.start();
-        bassGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.55);
-        bass.stop(audioCtx.currentTime + 0.6);
-        bassIndex++;
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.45);
+        bass.stop(audioCtx.currentTime + 0.5);
 
-        // Slower Lead
-        if (Math.random() > 0.25) {
-          const lead = audioCtx.createOscillator();
-          lead.type = 'sawtooth';
-          lead.frequency.value = leadNotes[leadIndex % leadNotes.length];
-          const leadGain = audioCtx.createGain();
-          leadGain.gain.value = 0.11;
-          lead.connect(leadGain).connect(audioCtx.destination);
-          lead.start();
-          leadGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.22);
-          lead.stop(audioCtx.currentTime + 0.28);
-          leadIndex++;
-        }
-      }, 178); // Adjusted for ~84 BPM
+        index++;
+      }, 160); // Slow and heavy rhythm
     }
 
     function drawDefaultPepe(x, y, angle) {
@@ -382,7 +368,7 @@
     }
 
     initAudio();
-    startHardcoreMusic();
+    startMusic();
     resetGame();
     gameLoop();
   </script>
