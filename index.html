@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pepenator - Meme Coin Apocalypse</title>
+  <style>
+    body {
+      margin: 0;
+      background: #0a0a0a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: 'Courier New', monospace;
+      overflow: hidden;
+    }
+    canvas {
+      image-rendering: pixelated;
+      border: 3px solid #00ff00;
+      box-shadow: 0 0 30px rgba(0, 255, 0, 0.5);
+    }
+    #ui {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      color: white;
+      pointer-events: none;
+    }
+    #gameOver {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #ff0000;
+      font-size: 48px;
+      text-align: center;
+      display: none;
+      text-shadow: 0 0 20px red;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" width="900" height="600"></canvas>
+  
+  <div id="ui">
+    <div>SCORE: <span id="score">0</span></div>
+    <div>HIGH: <span id="highscore">0</span></div>
+  </div>
+
+  <div id="gameOver">
+    GAME OVER<br>
+    <span style="font-size: 28px; color: white;">Final Score: <span id="finalScore">0</span></span><br><br>
+    Press <strong>R</strong> to Restart
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const highscoreEl = document.getElementById('highscore');
+    const gameOverEl = document.getElementById('gameOver');
+    const finalScoreEl = document.getElementById('finalScore');
+
+    let player = { x: 450, y: 300, size: 22, speed: 5 };
+    let bullets = [];
+    let enemies = [];
+    let score = 0;
+    let highscore = 0;
+    let gameOver = false;
+    let keys = {};
+    let mouse = { x: 450, y: 300 };
+
+    const enemyTypes = ['Doge', 'Troll', 'Grumpy', 'Sonic'];
+
+    function spawnEnemy() {
+      const side = Math.random() < 0.5 ? 'horizontal' : 'vertical';
+      let x, y;
+      if (Math.random() < 0.5) {
+        x = side === 'horizontal' ? (Math.random() < 0.5 ? -30 : canvas.width + 30) : Math.random() * canvas.width;
+        y = side === 'vertical' ? (Math.random() < 0.5 ? -30 : canvas.height + 30) : Math.random() * canvas.height;
+      } else {
+        y = side === 'vertical' ? (Math.random() < 0.5 ? -30 : canvas.height + 30) : Math.random() * canvas.height;
+        x = side === 'horizontal' ? (Math.random() < 0.5 ? -30 : canvas.width + 30) : Math.random() * canvas.width;
+      }
+      enemies.push({
+        x: x,
+        y: y,
+        size: 24,
+        speed: 1.8 + Math.random() * 0.6,
+        type: enemyTypes[Math.floor(Math.random() * enemyTypes.length)],
+        health: 3
+      });
+    }
+
+    function shoot() {
+      if (gameOver) return;
+      const dx = mouse.x - player.x;
+      const dy = mouse.y - player.y;
+      const dist = Math.hypot(dx, dy);
+      bullets.push({
+        x: player.x,
+        y: player.y,
+        vx: (dx / dist) * 12,
+        vy: (dy / dist) * 12,
+        life: 60
+      });
+    }
+
+    window.addEventListener('keydown', e => {
+      keys[e.key.toLowerCase()] = true;
+      if (gameOver && e.key.toLowerCase() === 'r') resetGame();
+    });
+    window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+    canvas.addEventListener('mousemove', e => {
+      const rect = canvas.getBoundingClientRect();
+      mouse.x = e.clientX - rect.left;
+      mouse.y = e.clientY - rect.top;
+    });
+
+    canvas.addEventListener('click', shoot);
+
+    function resetGame() {
+      player.x = 450;
+      player.y = 300;
+      bullets = [];
+      enemies = [];
+      score = 0;
+      gameOver = false;
+      gameOverEl.style.display = 'none';
+      updateUI();
+    }
+
+    function updateUI() {
+      scoreEl.textContent = score;
+      highscoreEl.textContent = highscore;
+    }
+
+    function gameLoop() {
+      if (gameOver) {
+        requestAnimationFrame(gameLoop);
+        return;
+      }
+
+      // Movement
+      if (keys['w'] || keys['arrowup']) player.y -= player.speed;
+      if (keys['s'] || keys['arrowdown']) player.y += player.speed;
+      if (keys['a'] || keys['arrowleft']) player.x -= player.speed;
+      if (keys['d'] || keys['arrowright']) player.x += player.speed;
+
+      // Boundaries
+      player.x = Math.max(25, Math.min(canvas.width - 25, player.x));
+      player.y = Math.max(25, Math.min(canvas.height - 25, player.y));
+
+      // Spawn enemies
+      if (Math.random() < 0.035) spawnEnemy();
+
+      // Update bullets
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        const b = bullets[i];
+        b.x += b.vx;
+        b.y += b.vy;
+        b.life--;
+        if (b.life <= 0) bullets.splice(i, 1);
+      }
+
+      // Update enemies
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i];
+        const dx = player.x - e.x;
+        const dy = player.y - e.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 0) {
+          e.x += (dx / dist) * e.speed;
+          e.y += (dy / dist) * e.speed;
+        }
+
+        // Collision with player
+        if (Math.hypot(e.x - player.x, e.y - player.y) < 35) {
+          gameOver = true;
+          if (score > highscore) highscore = score;
+          finalScoreEl.textContent = score;
+          gameOverEl.style.display = 'block';
+        }
+
+        // Bullet collision
+        for (let j = bullets.length - 1; j >= 0; j--) {
+          const b = bullets[j];
+          if (Math.hypot(b.x - e.x, b.y - e.y) < 20) {
+            e.health--;
+            bullets.splice(j, 1);
+            if (e.health <= 0) {
+              enemies.splice(i, 1);
+              score += 10;
+              updateUI();
+            }
+            break;
+          }
+        }
+      }
+
+      // Draw everything
+      ctx.fillStyle = '#1a0f2e';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Background debris
+      ctx.fillStyle = '#3a2a5a';
+      for (let i = 0; i < 30; i++) {
+        ctx.fillRect(Math.random()*canvas.width, Math.random()*canvas.height, 6, 6);
+      }
+
+      // Player (Pepenator)
+      ctx.save();
+      ctx.translate(player.x, player.y);
+      const angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+      ctx.rotate(angle);
+      ctx.fillStyle = '#00aa00';
+      ctx.fillRect(-18, -18, 36, 36);           // body
+      ctx.fillStyle = '#00ff00';
+      ctx.fillRect(-12, -12, 24, 24);
+      ctx.fillStyle = '#ff0000';
+      ctx.fillRect(8, -8, 12, 8);               // laser eye
+      ctx.fillStyle = '#444';
+      ctx.fillRect(15, -5, 22, 8);              // gun
+      ctx.restore();
+
+      // Bullets
+      ctx.fillStyle = '#ff00ff';
+      for (let b of bullets) {
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, 7, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Enemies
+      for (let e of enemies) {
+        ctx.fillStyle = e.type === 'Doge' ? '#e0a030' : '#c040c0';
+        ctx.fillRect(e.x - 18, e.y - 18, 36, 36);
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(e.x - 8, e.y - 8, 6, 6);
+        ctx.fillRect(e.x + 4, e.y - 8, 6, 6);
+      }
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    resetGame();
+    gameLoop();
+  </script>
+</body>
+</html>
