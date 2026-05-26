@@ -74,6 +74,9 @@
     let gameOver = false;
     let keys = {};
     let mouse = { x: 450, y: 300 };
+    let mouseDown = false;
+    let lastShot = 0;
+    const FIRE_RATE = 140; // milliseconds (lower = faster)
     let bossSpawned = false;
 
     const memeTypes = [
@@ -137,6 +140,13 @@
       });
     }
 
+    // Mouse hold for rapid fire
+    canvas.addEventListener('mousedown', (e) => {
+      if (e.button === 0) mouseDown = true;
+    });
+    canvas.addEventListener('mouseup', () => mouseDown = false);
+    canvas.addEventListener('mouseleave', () => mouseDown = false);
+
     window.addEventListener('keydown', e => {
       keys[e.key.toLowerCase()] = true;
       if (gameOver && e.key.toLowerCase() === 'r') resetGame();
@@ -149,8 +159,6 @@
       mouse.y = e.clientY - rect.top;
     });
 
-    canvas.addEventListener('click', shoot);
-
     function resetGame() {
       player.x = 450; player.y = 300;
       bullets = [];
@@ -159,6 +167,7 @@
       kills = 0;
       bossSpawned = false;
       gameOver = false;
+      mouseDown = false;
       gameOverEl.style.display = 'none';
       updateUI();
     }
@@ -174,19 +183,16 @@
       ctx.translate(x, y);
       ctx.rotate(angle);
       
-      // Body
       ctx.fillStyle = '#00aa00';
       ctx.fillRect(-20, -20, 40, 40);
       ctx.fillStyle = '#00ff44';
       ctx.fillRect(-15, -15, 30, 30);
       
-      // Laser Eye
       ctx.fillStyle = '#ff0000';
       ctx.fillRect(8, -9, 14, 8);
       ctx.fillStyle = '#ffff00';
       ctx.fillRect(18, -7, 6, 4);
       
-      // Gun
       ctx.fillStyle = '#333';
       ctx.fillRect(18, -4, 26, 9);
       ctx.fillStyle = '#666';
@@ -198,17 +204,13 @@
     function drawEnemy(e) {
       ctx.save();
       ctx.translate(e.x, e.y);
-      
-      if (e.isBoss) {
-        ctx.scale(2.2, 2.2);
-      }
+      if (e.isBoss) ctx.scale(2.2, 2.2);
       
       ctx.font = e.isBoss ? '42px Arial' : '32px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = e.type.color;
       ctx.fillText(e.type.emoji, 0, 0);
-      
       ctx.restore();
     }
 
@@ -227,7 +229,13 @@
       player.x = Math.max(30, Math.min(canvas.width - 30, player.x));
       player.y = Math.max(30, Math.min(canvas.height - 30, player.y));
 
-      // Spawn logic
+      // Rapid Fire
+      if (mouseDown && Date.now() - lastShot > FIRE_RATE) {
+        shoot();
+        lastShot = Date.now();
+      }
+
+      // Spawn enemies
       if (Math.random() < 0.04) spawnEnemy();
 
       if (kills >= 100 && !bossSpawned) {
@@ -253,7 +261,6 @@
         e.x += (dx / dist) * e.speed;
         e.y += (dy / dist) * e.speed;
 
-        // Player collision
         if (Math.hypot(e.x - player.x, e.y - player.y) < 35) {
           gameOver = true;
           if (score > highscore) highscore = score;
@@ -261,7 +268,6 @@
           gameOverEl.style.display = 'block';
         }
 
-        // Bullet collision
         for (let j = bullets.length - 1; j >= 0; j--) {
           const b = bullets[j];
           if (Math.hypot(b.x - e.x, b.y - e.y) < (e.isBoss ? 45 : 22)) {
@@ -282,7 +288,6 @@
       ctx.fillStyle = '#120822';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Debris
       ctx.fillStyle = '#3a2a55';
       for (let i = 0; i < 35; i++) {
         ctx.fillRect((Date.now() / 10 + i * 50) % canvas.width, i * 17 % canvas.height, 5, 5);
