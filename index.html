@@ -80,95 +80,93 @@
     const FIRE_RATE = 140;
     let bossSpawned = false;
 
-    // Audio Context
     let audioCtx;
     let musicInterval;
 
     function initAudio() {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-      // Hardcore 8-bit Shoot Sound
       window.shootSound = () => {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
-        gain.gain.value = 0.4;
+        osc.frequency.setValueAtTime(900, audioCtx.currentTime);
+        gain.gain.value = 0.35;
         osc.connect(gain).connect(audioCtx.destination);
         osc.start();
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
-        osc.stop(audioCtx.currentTime + 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+        osc.stop(audioCtx.currentTime + 0.13);
       };
 
-      // Explosion
       window.explodeSound = () => {
         const noise = audioCtx.createBufferSource();
-        const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.8, audioCtx.sampleRate);
+        const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.9, audioCtx.sampleRate);
         const data = buffer.getChannelData(0);
         for (let i = 0; i < buffer.length; i++) data[i] = Math.random() * 2 - 1;
         noise.buffer = buffer;
         const filter = audioCtx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.value = 800;
+        filter.frequency.value = 700;
         const gain = audioCtx.createGain();
-        gain.gain.value = 0.7;
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.9);
+        gain.gain.value = 0.65;
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.0);
         noise.connect(filter).connect(gain).connect(audioCtx.destination);
         noise.start();
       };
 
-      // Hit
       window.hitSound = () => {
         const osc = audioCtx.createOscillator();
         osc.type = 'square';
-        osc.frequency.setValueAtTime(250, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(180, audioCtx.currentTime);
         const gain = audioCtx.createGain();
-        gain.gain.value = 0.25;
+        gain.gain.value = 0.22;
         osc.connect(gain).connect(audioCtx.destination);
         osc.start();
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.06);
-        osc.stop(audioCtx.currentTime + 0.08);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+        osc.stop(audioCtx.currentTime + 0.1);
       };
     }
 
-    // **HARDCORE 8-BIT MUSIC**
+    // Slower + 2 Octaves Lower (~84 BPM)
     function startHardcoreMusic() {
       if (musicInterval) clearInterval(musicInterval);
       
-      const bassNotes = [130.81, 164.81, 196, 130.81]; // Low & heavy
-      const leadNotes = [523.25, 659.25, 783.99, 1046.5, 783.99, 659.25, 523.25];
+      // Deep bass (2 octaves down)
+      const bassNotes = [65.41, 82.41, 98.0, 65.41]; 
+      const leadNotes = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63];
+      
       let bassIndex = 0;
       let leadIndex = 0;
 
       musicInterval = setInterval(() => {
         if (gameOver) return;
 
-        // Heavy Bass
+        // Heavy Deep Bass
         const bass = audioCtx.createOscillator();
         bass.type = 'triangle';
         bass.frequency.value = bassNotes[bassIndex % bassNotes.length];
         const bassGain = audioCtx.createGain();
-        bassGain.gain.value = 0.18;
+        bassGain.gain.value = 0.22;
         bass.connect(bassGain).connect(audioCtx.destination);
         bass.start();
-        bassGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
-        bass.stop(audioCtx.currentTime + 0.4);
+        bassGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.55);
+        bass.stop(audioCtx.currentTime + 0.6);
         bassIndex++;
 
-        // Fast Lead (more aggressive)
-        if (Math.random() > 0.3) {
+        // Slower Lead
+        if (Math.random() > 0.25) {
           const lead = audioCtx.createOscillator();
           lead.type = 'sawtooth';
           lead.frequency.value = leadNotes[leadIndex % leadNotes.length];
           const leadGain = audioCtx.createGain();
-          leadGain.gain.value = 0.12;
+          leadGain.gain.value = 0.11;
           lead.connect(leadGain).connect(audioCtx.destination);
           lead.start();
-          leadGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
-          lead.stop(audioCtx.currentTime + 0.15);
+          leadGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.22);
+          lead.stop(audioCtx.currentTime + 0.28);
           leadIndex++;
         }
-      }, 110); // Very fast tempo = HARDCORE
+      }, 178); // Adjusted for ~84 BPM
     }
 
     function drawDefaultPepe(x, y, angle) {
@@ -279,14 +277,12 @@
       if (Math.random() < 0.04) spawnEnemy();
       if (kills >= 100 && !bossSpawned) spawnBoss();
 
-      // Update bullets
       for (let i = bullets.length - 1; i >= 0; i--) {
         const b = bullets[i];
         b.x += b.vx; b.y += b.vy; b.life--;
         if (b.life <= 0) bullets.splice(i, 1);
       }
 
-      // Update enemies
       for (let i = enemies.length - 1; i >= 0; i--) {
         const e = enemies[i];
         const dx = player.x - e.x;
@@ -322,7 +318,6 @@
         }
       }
 
-      // Explosions
       for (let i = explosions.length - 1; i >= 0; i--) {
         const exp = explosions[i];
         exp.radius += 7;
@@ -341,7 +336,6 @@
         }
       }
 
-      // Draw
       ctx.fillStyle = '#120822';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -387,7 +381,6 @@
       requestAnimationFrame(gameLoop);
     }
 
-    // Start Game
     initAudio();
     startHardcoreMusic();
     resetGame();
