@@ -65,10 +65,10 @@
     const gameOverEl = document.getElementById('gameOver');
     const finalScoreEl = document.getElementById('finalScore');
 
-    let player = { x: 450, y: 300, size: 24, speed: 5.5 };
+    let player = { x: 450, y: 300, size: 32, speed: 5.5 };
     let bullets = [];
     let enemies = [];
-    let explosions = []; // New: Explosions
+    let explosions = [];
     let score = 0;
     let kills = 0;
     let highscore = 0;
@@ -79,6 +79,10 @@
     let lastShot = 0;
     const FIRE_RATE = 140;
     let bossSpawned = false;
+
+    // Your custom Pepe image
+    const pepeImg = new Image();
+    pepeImg.src = "https://ibb.co/ymwsTq2D";
 
     const memeTypes = [
       {name: "Doge", color: "#e0a030", emoji: "🐕"},
@@ -152,9 +156,7 @@
       });
     }
 
-    canvas.addEventListener('mousedown', (e) => {
-      if (e.button === 0) mouseDown = true;
-    });
+    canvas.addEventListener('mousedown', (e) => { if (e.button === 0) mouseDown = true; });
     canvas.addEventListener('mouseup', () => mouseDown = false);
     canvas.addEventListener('mouseleave', () => mouseDown = false);
 
@@ -190,25 +192,14 @@
       highscoreEl.textContent = highscore;
     }
 
-    function drawPepe(x, y, angle) {
+    function drawPlayer() {
+      const angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
       ctx.save();
-      ctx.translate(x, y);
+      ctx.translate(player.x, player.y);
       ctx.rotate(angle);
       
-      ctx.fillStyle = '#00aa00';
-      ctx.fillRect(-20, -20, 40, 40);
-      ctx.fillStyle = '#00ff44';
-      ctx.fillRect(-15, -15, 30, 30);
-      
-      ctx.fillStyle = '#ff0000';
-      ctx.fillRect(8, -9, 14, 8);
-      ctx.fillStyle = '#ffff00';
-      ctx.fillRect(18, -7, 6, 4);
-      
-      ctx.fillStyle = '#333';
-      ctx.fillRect(18, -4, 26, 9);
-      ctx.fillStyle = '#666';
-      ctx.fillRect(38, -2, 8, 5);
+      // Draw your custom Pepe image
+      ctx.drawImage(pepeImg, -player.size/2, -player.size/2, player.size, player.size);
       
       ctx.restore();
     }
@@ -232,7 +223,7 @@
         return;
       }
 
-      // Player Movement
+      // Movement
       if (keys['w'] || keys['arrowup']) player.y -= player.speed;
       if (keys['s'] || keys['arrowdown']) player.y += player.speed;
       if (keys['a'] || keys['arrowleft']) player.x -= player.speed;
@@ -247,14 +238,11 @@
         lastShot = Date.now();
       }
 
-      // Spawn enemies
       if (Math.random() < 0.04) spawnEnemy();
 
-      if (kills >= 100 && !bossSpawned) {
-        spawnBoss();
-      }
+      if (kills >= 100 && !bossSpawned) spawnBoss();
 
-      // Update bullets
+      // Bullets
       for (let i = bullets.length - 1; i >= 0; i--) {
         const b = bullets[i];
         b.x += b.vx;
@@ -263,17 +251,16 @@
         if (b.life <= 0) bullets.splice(i, 1);
       }
 
-      // Update enemies
+      // Enemies
       for (let i = enemies.length - 1; i >= 0; i--) {
         const e = enemies[i];
         const dx = player.x - e.x;
         const dy = player.y - e.y;
         const dist = Math.hypot(dx, dy) || 1;
-        
         e.x += (dx / dist) * e.speed;
         e.y += (dy / dist) * e.speed;
 
-        if (Math.hypot(e.x - player.x, e.y - player.y) < 35) {
+        if (Math.hypot(e.x - player.x, e.y - player.y) < 38) {
           gameOver = true;
           if (score > highscore) highscore = score;
           finalScoreEl.textContent = score;
@@ -282,44 +269,38 @@
 
         for (let j = bullets.length - 1; j >= 0; j--) {
           const b = bullets[j];
-          if (Math.hypot(b.x - e.x, b.y - e.y) < (e.isBoss ? 45 : 22)) {
+          if (Math.hypot(b.x - e.x, b.y - e.y) < (e.isBoss ? 48 : 22)) {
             e.health--;
             bullets.splice(j, 1);
             if (e.health <= 0) {
-              // EXPLOSION EVERY 10TH KILL
-              const wasMilestone = (kills % 10 === 9); // Next kill will be 10th
+              const wasMilestone = (kills % 10 === 9);
               enemies.splice(i, 1);
               score += e.isBoss ? 500 : 10;
               kills++;
               updateUI();
 
-              if (wasMilestone) {
-                createExplosion(e.x, e.y);
-              }
+              if (wasMilestone) createExplosion(e.x, e.y);
             }
             break;
           }
         }
       }
 
-      // Update Explosions
+      // Explosions
       for (let i = explosions.length - 1; i >= 0; i--) {
         const exp = explosions[i];
         exp.radius += 6;
-        exp.alpha -= 0.03;
-        exp.time++;
+        exp.alpha -= 0.035;
 
         if (exp.alpha <= 0) {
           explosions.splice(i, 1);
           continue;
         }
 
-        // Damage nearby enemies
         for (let j = enemies.length - 1; j >= 0; j--) {
           const e = enemies[j];
-          const dist = Math.hypot(e.x - exp.x, e.y - exp.y);
-          if (dist < exp.radius + 20 && !e.isBoss) {
-            e.health -= 3; // Heavy damage from explosion
+          if (!e.isBoss && Math.hypot(e.x - exp.x, e.y - exp.y) < exp.radius + 20) {
+            e.health -= 3;
             if (e.health <= 0) {
               enemies.splice(j, 1);
               score += 15;
@@ -330,20 +311,20 @@
         }
       }
 
-      // Draw Background
+      // Draw everything
       ctx.fillStyle = '#120822';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+      // Background debris
       ctx.fillStyle = '#3a2a55';
       for (let i = 0; i < 35; i++) {
         ctx.fillRect((Date.now() / 10 + i * 50) % canvas.width, i * 17 % canvas.height, 5, 5);
       }
 
-      // Draw Player
-      const angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
-      drawPepe(player.x, player.y, angle);
+      // Player (Your Image)
+      drawPlayer();
 
-      // Draw Bullets
+      // Bullets
       ctx.fillStyle = '#ff00ff';
       for (let b of bullets) {
         ctx.beginPath();
@@ -351,36 +332,39 @@
         ctx.fill();
       }
 
-      // Draw Enemies
-      for (let e of enemies) {
-        drawEnemy(e);
-      }
+      // Enemies
+      for (let e of enemies) drawEnemy(e);
 
-      // Draw Explosions
+      // Explosions
       for (let exp of explosions) {
         ctx.save();
         ctx.globalAlpha = exp.alpha;
-        
-        // Outer glow
         ctx.beginPath();
         ctx.arc(exp.x, exp.y, exp.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 140, 0, ${exp.alpha * 0.6})`;
+        ctx.fillStyle = `rgba(255, 140, 0, ${exp.alpha * 0.7})`;
         ctx.fill();
-
-        // Core
         ctx.beginPath();
-        ctx.arc(exp.x, exp.y, exp.radius * 0.6, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 220, 50, ${exp.alpha})`;
+        ctx.arc(exp.x, exp.y, exp.radius * 0.55, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 230, 80, ${exp.alpha})`;
         ctx.fill();
-
         ctx.restore();
       }
 
       requestAnimationFrame(gameLoop);
     }
 
-    resetGame();
-    gameLoop();
+    // Wait for image to load before starting
+    pepeImg.onload = () => {
+      resetGame();
+      gameLoop();
+    };
+
+    // Fallback in case image fails to load
+    pepeImg.onerror = () => {
+      console.log("Image failed to load, using backup");
+      resetGame();
+      gameLoop();
+    };
   </script>
 </body>
 </html>
