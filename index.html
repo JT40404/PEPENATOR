@@ -80,79 +80,97 @@
     const FIRE_RATE = 140;
     let bossSpawned = false;
 
-    // Audio
-    let shootSound, explodeSound, hitSound, music;
-    function initAudio() {
-      // Simple Web Audio API sounds
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // Audio Context
+    let audioCtx;
+    let musicInterval;
 
-      // Laser Shoot
-      shootSound = () => {
+    function initAudio() {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+      // Hardcore 8-bit Shoot Sound
+      window.shootSound = () => {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-        gain.gain.value = 0.3;
+        osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
+        gain.gain.value = 0.4;
         osc.connect(gain).connect(audioCtx.destination);
         osc.start();
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
-        osc.stop(audioCtx.currentTime + 0.2);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+        osc.stop(audioCtx.currentTime + 0.12);
       };
 
       // Explosion
-      explodeSound = () => {
+      window.explodeSound = () => {
         const noise = audioCtx.createBufferSource();
-        const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.6, audioCtx.sampleRate);
+        const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.8, audioCtx.sampleRate);
         const data = buffer.getChannelData(0);
         for (let i = 0; i < buffer.length; i++) data[i] = Math.random() * 2 - 1;
         noise.buffer = buffer;
-        
         const filter = audioCtx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.value = 600;
-        
+        filter.frequency.value = 800;
         const gain = audioCtx.createGain();
-        gain.gain.value = 0.6;
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.7);
-        
+        gain.gain.value = 0.7;
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.9);
         noise.connect(filter).connect(gain).connect(audioCtx.destination);
         noise.start();
       };
 
       // Hit
-      hitSound = () => {
+      window.hitSound = () => {
         const osc = audioCtx.createOscillator();
         osc.type = 'square';
-        osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(250, audioCtx.currentTime);
         const gain = audioCtx.createGain();
-        gain.gain.value = 0.2;
+        gain.gain.value = 0.25;
         osc.connect(gain).connect(audioCtx.destination);
         osc.start();
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
-        osc.stop(audioCtx.currentTime + 0.1);
-      };
-
-      // 8-bit Music (simple loop)
-      music = () => {
-        const notes = [261.63, 329.63, 392, 523.25, 392, 329.63];
-        let index = 0;
-        setInterval(() => {
-          if (gameOver) return;
-          const osc = audioCtx.createOscillator();
-          osc.type = 'square';
-          osc.frequency.value = notes[index % notes.length];
-          const gain = audioCtx.createGain();
-          gain.gain.value = 0.08;
-          osc.connect(gain).connect(audioCtx.destination);
-          osc.start();
-          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
-          osc.stop(audioCtx.currentTime + 0.3);
-          index++;
-        }, 180);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.06);
+        osc.stop(audioCtx.currentTime + 0.08);
       };
     }
 
-    // Fallback Pepe (in case image fails)
+    // **HARDCORE 8-BIT MUSIC**
+    function startHardcoreMusic() {
+      if (musicInterval) clearInterval(musicInterval);
+      
+      const bassNotes = [130.81, 164.81, 196, 130.81]; // Low & heavy
+      const leadNotes = [523.25, 659.25, 783.99, 1046.5, 783.99, 659.25, 523.25];
+      let bassIndex = 0;
+      let leadIndex = 0;
+
+      musicInterval = setInterval(() => {
+        if (gameOver) return;
+
+        // Heavy Bass
+        const bass = audioCtx.createOscillator();
+        bass.type = 'triangle';
+        bass.frequency.value = bassNotes[bassIndex % bassNotes.length];
+        const bassGain = audioCtx.createGain();
+        bassGain.gain.value = 0.18;
+        bass.connect(bassGain).connect(audioCtx.destination);
+        bass.start();
+        bassGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+        bass.stop(audioCtx.currentTime + 0.4);
+        bassIndex++;
+
+        // Fast Lead (more aggressive)
+        if (Math.random() > 0.3) {
+          const lead = audioCtx.createOscillator();
+          lead.type = 'sawtooth';
+          lead.frequency.value = leadNotes[leadIndex % leadNotes.length];
+          const leadGain = audioCtx.createGain();
+          leadGain.gain.value = 0.12;
+          lead.connect(leadGain).connect(audioCtx.destination);
+          lead.start();
+          leadGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+          lead.stop(audioCtx.currentTime + 0.15);
+          leadIndex++;
+        }
+      }, 110); // Very fast tempo = HARDCORE
+    }
+
     function drawDefaultPepe(x, y, angle) {
       ctx.save();
       ctx.translate(x, y);
@@ -172,11 +190,8 @@
 
     function spawnEnemy() {
       const side = Math.random();
-      let x, y;
-      if (side < 0.25) { x = -30; y = Math.random() * canvas.height; }
-      else if (side < 0.5) { x = canvas.width + 30; y = Math.random() * canvas.height; }
-      else if (side < 0.75) { x = Math.random() * canvas.width; y = -30; }
-      else { x = Math.random() * canvas.width; y = canvas.height + 30; }
+      let x = side < 0.25 ? -30 : side < 0.5 ? canvas.width + 30 : Math.random() * canvas.width;
+      let y = side < 0.75 ? (side < 0.5 ? -30 : canvas.height + 30) : Math.random() * canvas.height;
 
       const memeTypes = [
         {name: "Doge", color: "#e0a030", emoji: "🐕"},
@@ -197,16 +212,13 @@
 
     function spawnBoss() {
       bossSpawned = true;
-      enemies.push({
-        x: canvas.width / 2, y: -60, size: 55, speed: 1.4,
-        type: {name: "TROLL BOSS", color: "#ff00ff", emoji: "🤡"},
-        health: 25, isBoss: true
-      });
+      enemies.push({ x: canvas.width / 2, y: -60, size: 55, speed: 1.4,
+        type: {name: "TROLL BOSS", color: "#ff00ff", emoji: "🤡"}, health: 25, isBoss: true });
     }
 
     function createExplosion(x, y) {
       explosions.push({ x, y, radius: 15, alpha: 1.0 });
-      explodeSound();
+      window.explodeSound();
     }
 
     function shoot() {
@@ -215,10 +227,9 @@
       const dy = mouse.y - player.y;
       const dist = Math.hypot(dx, dy) || 1;
       bullets.push({ x: player.x, y: player.y, vx: (dx / dist) * 13, vy: (dy / dist) * 13, life: 55 });
-      shootSound();
+      window.shootSound();
     }
 
-    // Event listeners...
     canvas.addEventListener('mousedown', e => { if (e.button === 0) mouseDown = true; });
     canvas.addEventListener('mouseup', () => mouseDown = false);
     canvas.addEventListener('mouseleave', () => mouseDown = false);
@@ -252,7 +263,6 @@
     function gameLoop() {
       if (gameOver) { requestAnimationFrame(gameLoop); return; }
 
-      // Movement
       if (keys['w'] || keys['arrowup']) player.y -= player.speed;
       if (keys['s'] || keys['arrowdown']) player.y += player.speed;
       if (keys['a'] || keys['arrowleft']) player.x -= player.speed;
@@ -261,7 +271,6 @@
       player.x = Math.max(30, Math.min(canvas.width - 30, player.x));
       player.y = Math.max(30, Math.min(canvas.height - 30, player.y));
 
-      // Rapid fire
       if (mouseDown && Date.now() - lastShot > FIRE_RATE) {
         shoot();
         lastShot = Date.now();
@@ -270,14 +279,14 @@
       if (Math.random() < 0.04) spawnEnemy();
       if (kills >= 100 && !bossSpawned) spawnBoss();
 
-      // Bullets update
+      // Update bullets
       for (let i = bullets.length - 1; i >= 0; i--) {
         const b = bullets[i];
         b.x += b.vx; b.y += b.vy; b.life--;
         if (b.life <= 0) bullets.splice(i, 1);
       }
 
-      // Enemies update
+      // Update enemies
       for (let i = enemies.length - 1; i >= 0; i--) {
         const e = enemies[i];
         const dx = player.x - e.x;
@@ -299,7 +308,7 @@
           if (Math.hypot(b.x - e.x, b.y - e.y) < (e.isBoss ? 48 : 22)) {
             e.health--;
             bullets.splice(j, 1);
-            hitSound();
+            window.hitSound();
             if (e.health <= 0) {
               const wasMilestone = (kills % 10 === 9);
               enemies.splice(i, 1);
@@ -336,27 +345,23 @@
       ctx.fillStyle = '#120822';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Debris
       ctx.fillStyle = '#3a2a55';
       for (let i = 0; i < 35; i++) {
         ctx.fillRect((Date.now()/10 + i*50) % canvas.width, i*17 % canvas.height, 5, 5);
       }
 
-      // Player
       const angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
       ctx.save();
       ctx.translate(player.x, player.y);
       ctx.rotate(angle);
-      drawDefaultPepe(0, 0, 0);   // Using solid drawn Pepe for reliability
+      drawDefaultPepe(0, 0, 0);
       ctx.restore();
 
-      // Bullets
       ctx.fillStyle = '#ff00ff';
       for (let b of bullets) {
         ctx.beginPath(); ctx.arc(b.x, b.y, 7, 0, Math.PI*2); ctx.fill();
       }
 
-      // Enemies
       for (let e of enemies) {
         ctx.save();
         ctx.translate(e.x, e.y);
@@ -369,13 +374,12 @@
         ctx.restore();
       }
 
-      // Explosions
       for (let exp of explosions) {
         ctx.save();
         ctx.globalAlpha = exp.alpha;
         ctx.beginPath();
         ctx.arc(exp.x, exp.y, exp.radius, 0, Math.PI*2);
-        ctx.fillStyle = `rgba(255, 120, 0, ${exp.alpha * 0.8})`;
+        ctx.fillStyle = `rgba(255, 100, 0, ${exp.alpha * 0.8})`;
         ctx.fill();
         ctx.restore();
       }
@@ -383,9 +387,9 @@
       requestAnimationFrame(gameLoop);
     }
 
-    // Start the game
+    // Start Game
     initAudio();
-    music();
+    startHardcoreMusic();
     resetGame();
     gameLoop();
   </script>
