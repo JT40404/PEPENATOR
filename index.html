@@ -80,22 +80,95 @@
     const FIRE_RATE = 140;
     let bossSpawned = false;
 
-    // Your custom Pepe image
-    const pepeImg = new Image();
-    pepeImg.src = "https://ibb.co/ymwsTq2D";
+    // Audio
+    let shootSound, explodeSound, hitSound, music;
+    function initAudio() {
+      // Simple Web Audio API sounds
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    const memeTypes = [
-      {name: "Doge", color: "#e0a030", emoji: "🐕"},
-      {name: "Shib", color: "#c06020", emoji: "🦊"},
-      {name: "Troll", color: "#80c040", emoji: "😈"},
-      {name: "Grumpy", color: "#606060", emoji: "😾"},
-      {name: "Sonic", color: "#00a0ff", emoji: "🌀"},
-      {name: "Wojak", color: "#a08060", emoji: "😭"},
-      {name: "Chad", color: "#ff4040", emoji: "💪"},
-      {name: "Apu", color: "#ffd700", emoji: "🛒"},
-      {name: "Gigachad", color: "#c0c0c0", emoji: "🗿"},
-      {name: "RarePepe", color: "#00aa00", emoji: "🐸"}
-    ];
+      // Laser Shoot
+      shootSound = () => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+        gain.gain.value = 0.3;
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+        osc.stop(audioCtx.currentTime + 0.2);
+      };
+
+      // Explosion
+      explodeSound = () => {
+        const noise = audioCtx.createBufferSource();
+        const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.6, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < buffer.length; i++) data[i] = Math.random() * 2 - 1;
+        noise.buffer = buffer;
+        
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 600;
+        
+        const gain = audioCtx.createGain();
+        gain.gain.value = 0.6;
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.7);
+        
+        noise.connect(filter).connect(gain).connect(audioCtx.destination);
+        noise.start();
+      };
+
+      // Hit
+      hitSound = () => {
+        const osc = audioCtx.createOscillator();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+        const gain = audioCtx.createGain();
+        gain.gain.value = 0.2;
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+        osc.stop(audioCtx.currentTime + 0.1);
+      };
+
+      // 8-bit Music (simple loop)
+      music = () => {
+        const notes = [261.63, 329.63, 392, 523.25, 392, 329.63];
+        let index = 0;
+        setInterval(() => {
+          if (gameOver) return;
+          const osc = audioCtx.createOscillator();
+          osc.type = 'square';
+          osc.frequency.value = notes[index % notes.length];
+          const gain = audioCtx.createGain();
+          gain.gain.value = 0.08;
+          osc.connect(gain).connect(audioCtx.destination);
+          osc.start();
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+          osc.stop(audioCtx.currentTime + 0.3);
+          index++;
+        }, 180);
+      };
+    }
+
+    // Fallback Pepe (in case image fails)
+    function drawDefaultPepe(x, y, angle) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+      ctx.fillStyle = '#00aa00';
+      ctx.fillRect(-20, -20, 40, 40);
+      ctx.fillStyle = '#00ff44';
+      ctx.fillRect(-15, -15, 30, 30);
+      ctx.fillStyle = '#ff0000';
+      ctx.fillRect(8, -9, 14, 8);
+      ctx.fillStyle = '#ffff00';
+      ctx.fillRect(18, -7, 6, 4);
+      ctx.fillStyle = '#333';
+      ctx.fillRect(18, -4, 26, 9);
+      ctx.restore();
+    }
 
     function spawnEnemy() {
       const side = Math.random();
@@ -105,41 +178,35 @@
       else if (side < 0.75) { x = Math.random() * canvas.width; y = -30; }
       else { x = Math.random() * canvas.width; y = canvas.height + 30; }
 
+      const memeTypes = [
+        {name: "Doge", color: "#e0a030", emoji: "🐕"},
+        {name: "Shib", color: "#c06020", emoji: "🦊"},
+        {name: "Troll", color: "#80c040", emoji: "😈"},
+        {name: "Grumpy", color: "#606060", emoji: "😾"},
+        {name: "Sonic", color: "#00a0ff", emoji: "🌀"},
+        {name: "Wojak", color: "#a08060", emoji: "😭"},
+        {name: "Chad", color: "#ff4040", emoji: "💪"},
+        {name: "Apu", color: "#ffd700", emoji: "🛒"},
+        {name: "Gigachad", color: "#c0c0c0", emoji: "🗿"},
+        {name: "RarePepe", color: "#00aa00", emoji: "🐸"}
+      ];
+
       const type = memeTypes[Math.floor(Math.random() * memeTypes.length)];
-      
-      enemies.push({
-        x: x,
-        y: y,
-        size: 26,
-        speed: 1.7 + Math.random() * 0.7,
-        type: type,
-        health: 2,
-        isBoss: false
-      });
+      enemies.push({ x, y, size: 26, speed: 1.7 + Math.random() * 0.7, type, health: 2, isBoss: false });
     }
 
     function spawnBoss() {
       bossSpawned = true;
       enemies.push({
-        x: canvas.width / 2,
-        y: -60,
-        size: 55,
-        speed: 1.4,
+        x: canvas.width / 2, y: -60, size: 55, speed: 1.4,
         type: {name: "TROLL BOSS", color: "#ff00ff", emoji: "🤡"},
-        health: 25,
-        isBoss: true
+        health: 25, isBoss: true
       });
     }
 
     function createExplosion(x, y) {
-      explosions.push({
-        x: x,
-        y: y,
-        radius: 10,
-        maxRadius: 90,
-        alpha: 1.0,
-        time: 0
-      });
+      explosions.push({ x, y, radius: 15, alpha: 1.0 });
+      explodeSound();
     }
 
     function shoot() {
@@ -147,16 +214,12 @@
       const dx = mouse.x - player.x;
       const dy = mouse.y - player.y;
       const dist = Math.hypot(dx, dy) || 1;
-      bullets.push({
-        x: player.x,
-        y: player.y,
-        vx: (dx / dist) * 13,
-        vy: (dy / dist) * 13,
-        life: 55
-      });
+      bullets.push({ x: player.x, y: player.y, vx: (dx / dist) * 13, vy: (dy / dist) * 13, life: 55 });
+      shootSound();
     }
 
-    canvas.addEventListener('mousedown', (e) => { if (e.button === 0) mouseDown = true; });
+    // Event listeners...
+    canvas.addEventListener('mousedown', e => { if (e.button === 0) mouseDown = true; });
     canvas.addEventListener('mouseup', () => mouseDown = false);
     canvas.addEventListener('mouseleave', () => mouseDown = false);
 
@@ -174,14 +237,8 @@
 
     function resetGame() {
       player.x = 450; player.y = 300;
-      bullets = [];
-      enemies = [];
-      explosions = [];
-      score = 0;
-      kills = 0;
-      bossSpawned = false;
-      gameOver = false;
-      mouseDown = false;
+      bullets = []; enemies = []; explosions = [];
+      score = 0; kills = 0; bossSpawned = false; gameOver = false;
       gameOverEl.style.display = 'none';
       updateUI();
     }
@@ -192,36 +249,8 @@
       highscoreEl.textContent = highscore;
     }
 
-    function drawPlayer() {
-      const angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
-      ctx.save();
-      ctx.translate(player.x, player.y);
-      ctx.rotate(angle);
-      
-      // Draw your custom Pepe image
-      ctx.drawImage(pepeImg, -player.size/2, -player.size/2, player.size, player.size);
-      
-      ctx.restore();
-    }
-
-    function drawEnemy(e) {
-      ctx.save();
-      ctx.translate(e.x, e.y);
-      if (e.isBoss) ctx.scale(2.2, 2.2);
-      
-      ctx.font = e.isBoss ? '42px Arial' : '32px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = e.type.color;
-      ctx.fillText(e.type.emoji, 0, 0);
-      ctx.restore();
-    }
-
     function gameLoop() {
-      if (gameOver) {
-        requestAnimationFrame(gameLoop);
-        return;
-      }
+      if (gameOver) { requestAnimationFrame(gameLoop); return; }
 
       // Movement
       if (keys['w'] || keys['arrowup']) player.y -= player.speed;
@@ -232,26 +261,23 @@
       player.x = Math.max(30, Math.min(canvas.width - 30, player.x));
       player.y = Math.max(30, Math.min(canvas.height - 30, player.y));
 
-      // Rapid Fire
+      // Rapid fire
       if (mouseDown && Date.now() - lastShot > FIRE_RATE) {
         shoot();
         lastShot = Date.now();
       }
 
       if (Math.random() < 0.04) spawnEnemy();
-
       if (kills >= 100 && !bossSpawned) spawnBoss();
 
-      // Bullets
+      // Bullets update
       for (let i = bullets.length - 1; i >= 0; i--) {
         const b = bullets[i];
-        b.x += b.vx;
-        b.y += b.vy;
-        b.life--;
+        b.x += b.vx; b.y += b.vy; b.life--;
         if (b.life <= 0) bullets.splice(i, 1);
       }
 
-      // Enemies
+      // Enemies update
       for (let i = enemies.length - 1; i >= 0; i--) {
         const e = enemies[i];
         const dx = player.x - e.x;
@@ -265,6 +291,7 @@
           if (score > highscore) highscore = score;
           finalScoreEl.textContent = score;
           gameOverEl.style.display = 'block';
+          return;
         }
 
         for (let j = bullets.length - 1; j >= 0; j--) {
@@ -272,13 +299,13 @@
           if (Math.hypot(b.x - e.x, b.y - e.y) < (e.isBoss ? 48 : 22)) {
             e.health--;
             bullets.splice(j, 1);
+            hitSound();
             if (e.health <= 0) {
               const wasMilestone = (kills % 10 === 9);
               enemies.splice(i, 1);
               score += e.isBoss ? 500 : 10;
               kills++;
               updateUI();
-
               if (wasMilestone) createExplosion(e.x, e.y);
             }
             break;
@@ -289,13 +316,9 @@
       // Explosions
       for (let i = explosions.length - 1; i >= 0; i--) {
         const exp = explosions[i];
-        exp.radius += 6;
-        exp.alpha -= 0.035;
-
-        if (exp.alpha <= 0) {
-          explosions.splice(i, 1);
-          continue;
-        }
+        exp.radius += 7;
+        exp.alpha -= 0.04;
+        if (exp.alpha <= 0) { explosions.splice(i, 1); continue; }
 
         for (let j = enemies.length - 1; j >= 0; j--) {
           const e = enemies[j];
@@ -303,49 +326,56 @@
             e.health -= 3;
             if (e.health <= 0) {
               enemies.splice(j, 1);
-              score += 15;
-              kills++;
-              updateUI();
+              score += 15; kills++; updateUI();
             }
           }
         }
       }
 
-      // Draw everything
+      // Draw
       ctx.fillStyle = '#120822';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Background debris
+      // Debris
       ctx.fillStyle = '#3a2a55';
       for (let i = 0; i < 35; i++) {
-        ctx.fillRect((Date.now() / 10 + i * 50) % canvas.width, i * 17 % canvas.height, 5, 5);
+        ctx.fillRect((Date.now()/10 + i*50) % canvas.width, i*17 % canvas.height, 5, 5);
       }
 
-      // Player (Your Image)
-      drawPlayer();
+      // Player
+      const angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+      ctx.save();
+      ctx.translate(player.x, player.y);
+      ctx.rotate(angle);
+      drawDefaultPepe(0, 0, 0);   // Using solid drawn Pepe for reliability
+      ctx.restore();
 
       // Bullets
       ctx.fillStyle = '#ff00ff';
       for (let b of bullets) {
-        ctx.beginPath();
-        ctx.arc(b.x, b.y, 7, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(b.x, b.y, 7, 0, Math.PI*2); ctx.fill();
       }
 
       // Enemies
-      for (let e of enemies) drawEnemy(e);
+      for (let e of enemies) {
+        ctx.save();
+        ctx.translate(e.x, e.y);
+        if (e.isBoss) ctx.scale(2.2, 2.2);
+        ctx.font = e.isBoss ? '42px Arial' : '32px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = e.type.color;
+        ctx.fillText(e.type.emoji, 0, 0);
+        ctx.restore();
+      }
 
       // Explosions
       for (let exp of explosions) {
         ctx.save();
         ctx.globalAlpha = exp.alpha;
         ctx.beginPath();
-        ctx.arc(exp.x, exp.y, exp.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 140, 0, ${exp.alpha * 0.7})`;
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(exp.x, exp.y, exp.radius * 0.55, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 230, 80, ${exp.alpha})`;
+        ctx.arc(exp.x, exp.y, exp.radius, 0, Math.PI*2);
+        ctx.fillStyle = `rgba(255, 120, 0, ${exp.alpha * 0.8})`;
         ctx.fill();
         ctx.restore();
       }
@@ -353,18 +383,11 @@
       requestAnimationFrame(gameLoop);
     }
 
-    // Wait for image to load before starting
-    pepeImg.onload = () => {
-      resetGame();
-      gameLoop();
-    };
-
-    // Fallback in case image fails to load
-    pepeImg.onerror = () => {
-      console.log("Image failed to load, using backup");
-      resetGame();
-      gameLoop();
-    };
+    // Start the game
+    initAudio();
+    music();
+    resetGame();
+    gameLoop();
   </script>
 </body>
 </html>
