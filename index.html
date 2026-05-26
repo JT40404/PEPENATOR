@@ -17,15 +17,16 @@
     }
     canvas {
       image-rendering: pixelated;
-      border: 3px solid #00ff00;
-      box-shadow: 0 0 30px rgba(0, 255, 0, 0.5);
+      border: 4px solid #00ff41;
+      box-shadow: 0 0 40px rgba(0, 255, 65, 0.6);
     }
     #ui {
       position: absolute;
       top: 20px;
       left: 20px;
-      color: white;
+      color: #00ff41;
       pointer-events: none;
+      text-shadow: 0 0 10px #00ff41;
     }
     #gameOver {
       position: absolute;
@@ -33,7 +34,7 @@
       left: 50%;
       transform: translate(-50%, -50%);
       color: #ff0000;
-      font-size: 48px;
+      font-size: 52px;
       text-align: center;
       display: none;
       text-shadow: 0 0 20px red;
@@ -45,6 +46,7 @@
   
   <div id="ui">
     <div>SCORE: <span id="score">0</span></div>
+    <div>KILLS: <span id="kills">0</span></div>
     <div>HIGH: <span id="highscore">0</span></div>
   </div>
 
@@ -58,38 +60,66 @@
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     const scoreEl = document.getElementById('score');
+    const killsEl = document.getElementById('kills');
     const highscoreEl = document.getElementById('highscore');
     const gameOverEl = document.getElementById('gameOver');
     const finalScoreEl = document.getElementById('finalScore');
 
-    let player = { x: 450, y: 300, size: 22, speed: 5 };
+    let player = { x: 450, y: 300, size: 24, speed: 5.5 };
     let bullets = [];
     let enemies = [];
     let score = 0;
+    let kills = 0;
     let highscore = 0;
     let gameOver = false;
     let keys = {};
     let mouse = { x: 450, y: 300 };
+    let bossSpawned = false;
 
-    const enemyTypes = ['Doge', 'Troll', 'Grumpy', 'Sonic'];
+    const memeTypes = [
+      {name: "Doge", color: "#e0a030", emoji: "🐕"},
+      {name: "Shib", color: "#c06020", emoji: "🦊"},
+      {name: "Troll", color: "#80c040", emoji: "😈"},
+      {name: "Grumpy", color: "#606060", emoji: "😾"},
+      {name: "Sonic", color: "#00a0ff", emoji: "🌀"},
+      {name: "Wojak", color: "#a08060", emoji: "😭"},
+      {name: "Chad", color: "#ff4040", emoji: "💪"},
+      {name: "Apu", color: "#ffd700", emoji: "🛒"},
+      {name: "Gigachad", color: "#c0c0c0", emoji: "🗿"},
+      {name: "RarePepe", color: "#00aa00", emoji: "🐸"}
+    ];
 
     function spawnEnemy() {
-      const side = Math.random() < 0.5 ? 'horizontal' : 'vertical';
+      const side = Math.random();
       let x, y;
-      if (Math.random() < 0.5) {
-        x = side === 'horizontal' ? (Math.random() < 0.5 ? -30 : canvas.width + 30) : Math.random() * canvas.width;
-        y = side === 'vertical' ? (Math.random() < 0.5 ? -30 : canvas.height + 30) : Math.random() * canvas.height;
-      } else {
-        y = side === 'vertical' ? (Math.random() < 0.5 ? -30 : canvas.height + 30) : Math.random() * canvas.height;
-        x = side === 'horizontal' ? (Math.random() < 0.5 ? -30 : canvas.width + 30) : Math.random() * canvas.width;
-      }
+      if (side < 0.25) { x = -30; y = Math.random() * canvas.height; }
+      else if (side < 0.5) { x = canvas.width + 30; y = Math.random() * canvas.height; }
+      else if (side < 0.75) { x = Math.random() * canvas.width; y = -30; }
+      else { x = Math.random() * canvas.width; y = canvas.height + 30; }
+
+      const type = memeTypes[Math.floor(Math.random() * memeTypes.length)];
+      
       enemies.push({
         x: x,
         y: y,
-        size: 24,
-        speed: 1.8 + Math.random() * 0.6,
-        type: enemyTypes[Math.floor(Math.random() * enemyTypes.length)],
-        health: 3
+        size: 26,
+        speed: 1.7 + Math.random() * 0.7,
+        type: type,
+        health: 3,
+        isBoss: false
+      });
+    }
+
+    function spawnBoss() {
+      bossSpawned = true;
+      enemies.push({
+        x: canvas.width / 2,
+        y: -60,
+        size: 55,
+        speed: 1.4,
+        type: {name: "TROLL BOSS", color: "#ff00ff", emoji: "🤡"},
+        health: 25,
+        isBoss: true
       });
     }
 
@@ -97,13 +127,13 @@
       if (gameOver) return;
       const dx = mouse.x - player.x;
       const dy = mouse.y - player.y;
-      const dist = Math.hypot(dx, dy);
+      const dist = Math.hypot(dx, dy) || 1;
       bullets.push({
         x: player.x,
         y: player.y,
-        vx: (dx / dist) * 12,
-        vy: (dy / dist) * 12,
-        life: 60
+        vx: (dx / dist) * 13,
+        vy: (dy / dist) * 13,
+        life: 55
       });
     }
 
@@ -122,11 +152,12 @@
     canvas.addEventListener('click', shoot);
 
     function resetGame() {
-      player.x = 450;
-      player.y = 300;
+      player.x = 450; player.y = 300;
       bullets = [];
       enemies = [];
       score = 0;
+      kills = 0;
+      bossSpawned = false;
       gameOver = false;
       gameOverEl.style.display = 'none';
       updateUI();
@@ -134,7 +165,51 @@
 
     function updateUI() {
       scoreEl.textContent = score;
+      killsEl.textContent = kills;
       highscoreEl.textContent = highscore;
+    }
+
+    function drawPepe(x, y, angle) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+      
+      // Body
+      ctx.fillStyle = '#00aa00';
+      ctx.fillRect(-20, -20, 40, 40);
+      ctx.fillStyle = '#00ff44';
+      ctx.fillRect(-15, -15, 30, 30);
+      
+      // Laser Eye
+      ctx.fillStyle = '#ff0000';
+      ctx.fillRect(8, -9, 14, 8);
+      ctx.fillStyle = '#ffff00';
+      ctx.fillRect(18, -7, 6, 4);
+      
+      // Gun
+      ctx.fillStyle = '#333';
+      ctx.fillRect(18, -4, 26, 9);
+      ctx.fillStyle = '#666';
+      ctx.fillRect(38, -2, 8, 5);
+      
+      ctx.restore();
+    }
+
+    function drawEnemy(e) {
+      ctx.save();
+      ctx.translate(e.x, e.y);
+      
+      if (e.isBoss) {
+        ctx.scale(2.2, 2.2);
+      }
+      
+      ctx.font = e.isBoss ? '42px Arial' : '32px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = e.type.color;
+      ctx.fillText(e.type.emoji, 0, 0);
+      
+      ctx.restore();
     }
 
     function gameLoop() {
@@ -143,18 +218,21 @@
         return;
       }
 
-      // Movement
+      // Player Movement
       if (keys['w'] || keys['arrowup']) player.y -= player.speed;
       if (keys['s'] || keys['arrowdown']) player.y += player.speed;
       if (keys['a'] || keys['arrowleft']) player.x -= player.speed;
       if (keys['d'] || keys['arrowright']) player.x += player.speed;
 
-      // Boundaries
-      player.x = Math.max(25, Math.min(canvas.width - 25, player.x));
-      player.y = Math.max(25, Math.min(canvas.height - 25, player.y));
+      player.x = Math.max(30, Math.min(canvas.width - 30, player.x));
+      player.y = Math.max(30, Math.min(canvas.height - 30, player.y));
 
-      // Spawn enemies
-      if (Math.random() < 0.035) spawnEnemy();
+      // Spawn logic
+      if (Math.random() < 0.04) spawnEnemy();
+
+      if (kills >= 100 && !bossSpawned) {
+        spawnBoss();
+      }
 
       // Update bullets
       for (let i = bullets.length - 1; i >= 0; i--) {
@@ -170,13 +248,12 @@
         const e = enemies[i];
         const dx = player.x - e.x;
         const dy = player.y - e.y;
-        const dist = Math.hypot(dx, dy);
-        if (dist > 0) {
-          e.x += (dx / dist) * e.speed;
-          e.y += (dy / dist) * e.speed;
-        }
+        const dist = Math.hypot(dx, dy) || 1;
+        
+        e.x += (dx / dist) * e.speed;
+        e.y += (dy / dist) * e.speed;
 
-        // Collision with player
+        // Player collision
         if (Math.hypot(e.x - player.x, e.y - player.y) < 35) {
           gameOver = true;
           if (score > highscore) highscore = score;
@@ -187,12 +264,13 @@
         // Bullet collision
         for (let j = bullets.length - 1; j >= 0; j--) {
           const b = bullets[j];
-          if (Math.hypot(b.x - e.x, b.y - e.y) < 20) {
+          if (Math.hypot(b.x - e.x, b.y - e.y) < (e.isBoss ? 45 : 22)) {
             e.health--;
             bullets.splice(j, 1);
             if (e.health <= 0) {
               enemies.splice(i, 1);
-              score += 10;
+              score += e.isBoss ? 500 : 10;
+              kills++;
               updateUI();
             }
             break;
@@ -200,32 +278,21 @@
         }
       }
 
-      // Draw everything
-      ctx.fillStyle = '#1a0f2e';
+      // Draw Background
+      ctx.fillStyle = '#120822';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Background debris
-      ctx.fillStyle = '#3a2a5a';
-      for (let i = 0; i < 30; i++) {
-        ctx.fillRect(Math.random()*canvas.width, Math.random()*canvas.height, 6, 6);
+      // Debris
+      ctx.fillStyle = '#3a2a55';
+      for (let i = 0; i < 35; i++) {
+        ctx.fillRect((Date.now() / 10 + i * 50) % canvas.width, i * 17 % canvas.height, 5, 5);
       }
 
-      // Player (Pepenator)
-      ctx.save();
-      ctx.translate(player.x, player.y);
+      // Draw Player
       const angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
-      ctx.rotate(angle);
-      ctx.fillStyle = '#00aa00';
-      ctx.fillRect(-18, -18, 36, 36);           // body
-      ctx.fillStyle = '#00ff00';
-      ctx.fillRect(-12, -12, 24, 24);
-      ctx.fillStyle = '#ff0000';
-      ctx.fillRect(8, -8, 12, 8);               // laser eye
-      ctx.fillStyle = '#444';
-      ctx.fillRect(15, -5, 22, 8);              // gun
-      ctx.restore();
+      drawPepe(player.x, player.y, angle);
 
-      // Bullets
+      // Draw Bullets
       ctx.fillStyle = '#ff00ff';
       for (let b of bullets) {
         ctx.beginPath();
@@ -233,13 +300,9 @@
         ctx.fill();
       }
 
-      // Enemies
+      // Draw Enemies
       for (let e of enemies) {
-        ctx.fillStyle = e.type === 'Doge' ? '#e0a030' : '#c040c0';
-        ctx.fillRect(e.x - 18, e.y - 18, 36, 36);
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(e.x - 8, e.y - 8, 6, 6);
-        ctx.fillRect(e.x + 4, e.y - 8, 6, 6);
+        drawEnemy(e);
       }
 
       requestAnimationFrame(gameLoop);
